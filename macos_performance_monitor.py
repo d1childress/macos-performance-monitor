@@ -9,8 +9,19 @@ import subprocess
 import json
 import time
 from datetime import datetime
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import Any, Dict, List, Optional
+
+# Rich library imports for enhanced UI
+from rich.console import Console
+from rich.table import Table
+from rich.progress import Progress, BarColumn, TextColumn
+from rich.panel import Panel
+from rich.columns import Columns
+from rich.layout import Layout
+from rich import box
+from rich.text import Text
+from rich.live import Live
 
 
 class MacOSPerformanceMonitor:
@@ -34,6 +45,72 @@ class MacOSPerformanceMonitor:
             psutil.cpu_percent(interval=None, percpu=True)
         except Exception:
             pass
+
+        # Rich console for enhanced output
+        self.console = Console()
+
+        # Historical data tracking for trends
+        self.history_size = 20
+        self.cpu_history = deque(maxlen=self.history_size)
+        self.memory_history = deque(maxlen=self.history_size)
+        self.network_history = deque(maxlen=self.history_size)
+
+    def _get_status_color(self, percent: float) -> str:
+        """Return color based on usage percentage"""
+        if percent >= 90:
+            return "red"
+        elif percent >= 75:
+            return "yellow"
+        elif percent >= 50:
+            return "blue"
+        else:
+            return "green"
+
+    def _get_status_emoji(self, percent: float) -> str:
+        """Return emoji based on usage percentage"""
+        if percent >= 90:
+            return "🔴"
+        elif percent >= 75:
+            return "🟡"
+        else:
+            return "🟢"
+
+    def _create_progress_bar(self, value: float, width: int = 20) -> str:
+        """Create a text-based progress bar"""
+        filled = int((value / 100) * width)
+        bar = "█" * filled + "░" * (width - filled)
+        return bar
+
+    def _format_bytes(self, bytes_val: float, suffix: str = "B") -> str:
+        """Format bytes to human readable format"""
+        for unit in ["", "K", "M", "G", "T"]:
+            if abs(bytes_val) < 1024.0:
+                return f"{bytes_val:3.1f}{unit}{suffix}"
+            bytes_val /= 1024.0
+        return f"{bytes_val:.1f}P{suffix}"
+
+    def _create_sparkline(self, data: list, width: int = 15) -> str:
+        """Create a simple sparkline from historical data"""
+        if not data or len(data) < 2:
+            return "─" * width
+
+        bars = "▁▂▃▄▅▆▇█"
+        min_val = min(data)
+        max_val = max(data)
+        range_val = max_val - min_val if max_val > min_val else 1
+
+        result = []
+        step = len(data) / width
+        for i in range(width):
+            idx = int(i * step)
+            if idx < len(data):
+                normalized = (data[idx] - min_val) / range_val
+                bar_idx = min(int(normalized * len(bars)), len(bars) - 1)
+                result.append(bars[bar_idx])
+            else:
+                result.append("─")
+
+        return "".join(result)
         
     def get_cpu_info(self) -> Dict[str, Any]:
         """Get detailed CPU information"""
@@ -221,81 +298,226 @@ class MacOSPerformanceMonitor:
         }
     
     def print_performance_report(self, *, show_processes: bool = True, top_n: int = 10, sort_by: str = 'cpu', show_disk_io: bool = True, show_battery: bool = True, compact: bool = False) -> None:
-        """Print a formatted performance report"""
-        print("=" * 70)
-        print(f"macOS System Performance Report - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("=" * 70)
-        
-        # System Uptime
+        """Print a beautifully formatted performance report using Rich"""
+
+        # Collect all data
         uptime = self.get_system_uptime()
-        print(f"\n📅 SYSTEM UPTIME")
-        print(f"   Boot Time: {uptime['boot_time']}")
-        print(f"   Uptime: {uptime['uptime_days']}d {uptime['uptime_hours']}h {uptime['uptime_minutes']}m")
-        
-        # CPU Information
         cpu = self.get_cpu_info()
-        print(f"\n🖥️  CPU USAGE")
-        print(f"   Overall: {cpu['overall_usage']}%")
-        print(f"   Cores: {cpu['core_count']} physical, {cpu['thread_count']} logical")
-        if cpu['frequency_mhz']:
-            if cpu['max_frequency_mhz']:
-                print(f"   Frequency: {cpu['frequency_mhz']:.0f} MHz (Max: {cpu['max_frequency_mhz']:.0f} MHz)")
-            else:
-                print(f"   Frequency: {cpu['frequency_mhz']:.0f} MHz")
-        
-        # Memory Information
         mem = self.get_memory_info()
-        print(f"\n💾 MEMORY USAGE")
-        print(f"   Used: {mem['used_gb']} GiB / {mem['total_gb']} GiB ({mem['percent']}%)")
-        print(f"   Available: {mem['available_gb']} GiB")
-        if mem['swap_used_gb'] > 0:
-            print(f"   Swap: {mem['swap_used_gb']} GiB / {mem['swap_total_gb']} GiB ({mem['swap_percent']}%)")
-        
-        # Disk Information
         disk = self.get_disk_info()
-        print(f"\n💿 DISK USAGE")
-        for partition in disk['partitions']:
-            print(f"   {partition['mountpoint']}: {partition['used_gib']} GiB / {partition['total_gib']} GiB ({partition['percent']}%)")
-        
-        if show_disk_io and disk['io_stats']:
-            print(f"   I/O: {disk['io_stats']['read_mib']} MiB read, {disk['io_stats']['write_mib']} MiB written")
-            print(f"        Rates: {disk['io_stats']['read_rate_mib_s']} MiB/s read, {disk['io_stats']['write_rate_mib_s']} MiB/s write")
-        
-        # Network Information
         net = self.get_network_info()
-        print(f"\n🌐 NETWORK")
-        print(f"   Sent: {net['bytes_sent_mib']} MiB ({net['send_rate_mib_s']} MiB/s)")
-        print(f"   Received: {net['bytes_recv_mib']} MiB ({net['recv_rate_mib_s']} MiB/s)")
-        
-        # Battery Information
-        if show_battery:
-            battery = self.get_battery_info()
-            if battery:
-                print(f"\n🔋 BATTERY")
-                status = "Charging" if battery['plugged_in'] else "Discharging"
-                print(f"   Level: {battery['percent']}% ({status})")
-                if battery['time_left_minutes']:
-                    print(f"   Time Remaining: {battery['time_left_minutes']} minutes")
-        
-        # Temperature Information
+        battery = self.get_battery_info() if show_battery else None
         temp = self.get_temperature_info()
+
+        # Update historical data
+        self.cpu_history.append(cpu['overall_usage'])
+        self.memory_history.append(mem['percent'])
+        self.network_history.append(net['send_rate_mib_s'] + net['recv_rate_mib_s'])
+
+        # Create header panel
+        title = Text()
+        title.append("🖥️  macOS System Performance Monitor\n", style="bold cyan")
+        title.append(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", style="dim")
+        header = Panel(title, box=box.DOUBLE, border_style="bright_blue")
+        self.console.print(header)
+
+        # System Uptime Panel
+        uptime_text = Text()
+        uptime_text.append(f"⏰ Boot Time: ", style="bold")
+        uptime_text.append(f"{uptime['boot_time']}\n", style="cyan")
+        uptime_text.append(f"⏱️  Uptime: ", style="bold")
+        uptime_text.append(f"{uptime['uptime_days']}d {uptime['uptime_hours']}h {uptime['uptime_minutes']}m", style="green")
+        uptime_panel = Panel(uptime_text, title="[bold]System Uptime[/bold]", box=box.ROUNDED, border_style="green")
+
+        # CPU Panel
+        cpu_emoji = self._get_status_emoji(cpu['overall_usage'])
+        cpu_color = self._get_status_color(cpu['overall_usage'])
+        cpu_bar = self._create_progress_bar(cpu['overall_usage'], width=25)
+        cpu_sparkline = self._create_sparkline(list(self.cpu_history), width=15)
+
+        cpu_text = Text()
+        cpu_text.append(f"{cpu_emoji} Overall: ", style="bold")
+        cpu_text.append(f"{cpu['overall_usage']:.1f}%\n", style=f"bold {cpu_color}")
+        cpu_text.append(f"{cpu_bar}\n", style=cpu_color)
+        cpu_text.append(f"📊 Trend: {cpu_sparkline}\n\n", style="dim")
+        cpu_text.append(f"🔢 Cores: ", style="bold")
+        cpu_text.append(f"{cpu['core_count']} physical, {cpu['thread_count']} logical\n", style="white")
+
+        if cpu['frequency_mhz']:
+            cpu_text.append(f"⚡ Frequency: ", style="bold")
+            if cpu['max_frequency_mhz']:
+                cpu_text.append(f"{cpu['frequency_mhz']:.0f} MHz (Max: {cpu['max_frequency_mhz']:.0f} MHz)\n", style="yellow")
+            else:
+                cpu_text.append(f"{cpu['frequency_mhz']:.0f} MHz\n", style="yellow")
+
+        # Per-core usage (compact representation)
+        if len(cpu['per_core_usage']) <= 16:
+            cpu_text.append(f"\n💻 Per-Core Usage:\n", style="bold")
+            for i, core_usage in enumerate(cpu['per_core_usage']):
+                core_color = self._get_status_color(core_usage)
+                mini_bar = self._create_progress_bar(core_usage, width=10)
+                cpu_text.append(f"  Core {i:2d}: ", style="dim")
+                cpu_text.append(f"{mini_bar}", style=core_color)
+                cpu_text.append(f" {core_usage:5.1f}%\n", style=core_color)
+
+        cpu_panel = Panel(cpu_text, title="[bold]🖥️  CPU Usage[/bold]", box=box.ROUNDED, border_style=cpu_color)
+
+        # Memory Panel
+        mem_emoji = self._get_status_emoji(mem['percent'])
+        mem_color = self._get_status_color(mem['percent'])
+        mem_bar = self._create_progress_bar(mem['percent'], width=25)
+        mem_sparkline = self._create_sparkline(list(self.memory_history), width=15)
+
+        mem_text = Text()
+        mem_text.append(f"{mem_emoji} Usage: ", style="bold")
+        mem_text.append(f"{mem['percent']:.1f}%\n", style=f"bold {mem_color}")
+        mem_text.append(f"{mem_bar}\n", style=mem_color)
+        mem_text.append(f"📊 Trend: {mem_sparkline}\n\n", style="dim")
+        mem_text.append(f"📦 Used: ", style="bold")
+        mem_text.append(f"{mem['used_gb']:.2f} GiB / {mem['total_gb']:.2f} GiB\n", style="white")
+        mem_text.append(f"✨ Available: ", style="bold")
+        mem_text.append(f"{mem['available_gb']:.2f} GiB\n", style="green")
+
+        if mem['swap_used_gb'] > 0:
+            swap_color = self._get_status_color(mem['swap_percent'])
+            mem_text.append(f"💾 Swap: ", style="bold")
+            mem_text.append(f"{mem['swap_used_gb']:.2f} / {mem['swap_total_gb']:.2f} GiB ({mem['swap_percent']:.1f}%)", style=swap_color)
+
+        mem_panel = Panel(mem_text, title="[bold]💾 Memory Usage[/bold]", box=box.ROUNDED, border_style=mem_color)
+
+        # Disk Panel
+        disk_text = Text()
+        for idx, partition in enumerate(disk['partitions']):
+            if idx > 0:
+                disk_text.append("\n")
+            disk_color = self._get_status_color(partition['percent'])
+            disk_emoji = self._get_status_emoji(partition['percent'])
+            disk_bar = self._create_progress_bar(partition['percent'], width=20)
+
+            disk_text.append(f"{disk_emoji} {partition['mountpoint']}\n", style="bold cyan")
+            disk_text.append(f"   {disk_bar} ", style=disk_color)
+            disk_text.append(f"{partition['percent']:.1f}%\n", style=f"bold {disk_color}")
+            disk_text.append(f"   {partition['used_gib']:.2f} / {partition['total_gib']:.2f} GiB ", style="white")
+            disk_text.append(f"({partition['free_gib']:.2f} GiB free)\n", style="dim")
+
+        if show_disk_io and disk['io_stats']:
+            disk_text.append(f"\n📊 I/O Statistics:\n", style="bold")
+            disk_text.append(f"   Read:  {disk['io_stats']['read_mib']:.2f} MiB ", style="blue")
+            disk_text.append(f"({disk['io_stats']['read_rate_mib_s']:.2f} MiB/s)\n", style="dim")
+            disk_text.append(f"   Write: {disk['io_stats']['write_mib']:.2f} MiB ", style="magenta")
+            disk_text.append(f"({disk['io_stats']['write_rate_mib_s']:.2f} MiB/s)", style="dim")
+
+        disk_panel = Panel(disk_text, title="[bold]💿 Disk Usage[/bold]", box=box.ROUNDED, border_style="blue")
+
+        # Network Panel
+        net_sparkline = self._create_sparkline(list(self.network_history), width=15)
+        net_text = Text()
+        net_text.append(f"📊 Activity: {net_sparkline}\n\n", style="dim")
+        net_text.append(f"⬆️  Sent:     ", style="bold")
+        net_text.append(f"{net['bytes_sent_mib']:.2f} MiB ", style="green")
+        net_text.append(f"({net['send_rate_mib_s']:.2f} MiB/s)\n", style="dim")
+        net_text.append(f"⬇️  Received: ", style="bold")
+        net_text.append(f"{net['bytes_recv_mib']:.2f} MiB ", style="blue")
+        net_text.append(f"({net['recv_rate_mib_s']:.2f} MiB/s)\n", style="dim")
+        net_text.append(f"📦 Packets:   ", style="bold")
+        net_text.append(f"↑{net['packets_sent']:,} / ↓{net['packets_recv']:,}", style="white")
+
+        net_panel = Panel(net_text, title="[bold]🌐 Network[/bold]", box=box.ROUNDED, border_style="cyan")
+
+        # Battery and Temperature Panel (combined)
+        extra_panels = []
+
+        if battery:
+            battery_color = "green" if battery['percent'] > 50 else "yellow" if battery['percent'] > 20 else "red"
+            battery_emoji = "🔌" if battery['plugged_in'] else "🔋"
+            battery_bar = self._create_progress_bar(battery['percent'], width=15)
+
+            battery_text = Text()
+            battery_text.append(f"{battery_emoji} Level: ", style="bold")
+            battery_text.append(f"{battery['percent']:.0f}%\n", style=f"bold {battery_color}")
+            battery_text.append(f"{battery_bar}\n", style=battery_color)
+            status = "Charging" if battery['plugged_in'] else "Discharging"
+            battery_text.append(f"Status: {status}\n", style="cyan")
+            if battery['time_left_minutes']:
+                battery_text.append(f"⏱️  Time: {battery['time_left_minutes']} min", style="dim")
+
+            battery_panel = Panel(battery_text, title="[bold]🔋 Battery[/bold]", box=box.ROUNDED, border_style=battery_color)
+            extra_panels.append(battery_panel)
+
         if temp and 'cpu_temp_c' in temp:
-            print(f"\n🌡️  TEMPERATURE")
-            print(f"   CPU: {temp['cpu_temp_c']}°C")
-        
-        # Top Processes
+            temp_val = temp['cpu_temp_c']
+            temp_color = "red" if temp_val > 80 else "yellow" if temp_val > 60 else "green"
+
+            temp_text = Text()
+            temp_text.append(f"🌡️  CPU: ", style="bold")
+            temp_text.append(f"{temp_val:.1f}°C", style=f"bold {temp_color}")
+
+            temp_panel = Panel(temp_text, title="[bold]🌡️  Temperature[/bold]", box=box.ROUNDED, border_style=temp_color)
+            extra_panels.append(temp_panel)
+
+        # Top Processes Table
         if show_processes:
-            title_sort = 'CPU' if sort_by == 'cpu' else 'MEM'
-            print(f"\n🔝 TOP {top_n} PROCESSES (by {title_sort})")
+            table = Table(title=f"🔝 Top {top_n} Processes (by {'CPU' if sort_by == 'cpu' else 'Memory'})",
+                         box=box.ROUNDED, border_style="magenta", show_header=True, header_style="bold magenta")
+
+            table.add_column("PID", justify="right", style="cyan", no_wrap=True)
+            table.add_column("CPU %", justify="right", style="yellow")
+            table.add_column("CPU Bar", justify="left", width=12)
+            table.add_column("MEM %", justify="right", style="blue")
+            table.add_column("MEM Bar", justify="left", width=12)
+            table.add_column("Process Name", style="white", overflow="fold")
+            table.add_column("User", style="dim", overflow="fold")
+
             top_list = self.get_top_processes(num=top_n, sort_by=sort_by)
-            if not compact:
-                print(f"   {'PID':<8} {'CPU%':<8} {'MEM%':<8} {'Name':<30} {'User':<15}")
-                print(f"   {'-'*75}")
             for proc in top_list:
-                line = f"   {proc['pid']:<8} {proc['cpu_percent']:<8.1f} {proc['memory_percent']:<8.1f} {proc['name'][:30]:<30} {proc['username'][:15]:<15}"
-                print(line)
-        
-        print("\n" + "=" * 70)
+                cpu_pct = proc['cpu_percent']
+                mem_pct = proc['memory_percent']
+                cpu_bar = self._create_progress_bar(min(cpu_pct, 100), width=10)
+                mem_bar = self._create_progress_bar(min(mem_pct, 100), width=10)
+
+                cpu_color = self._get_status_color(cpu_pct)
+                mem_color = self._get_status_color(mem_pct)
+
+                table.add_row(
+                    str(proc['pid']),
+                    f"{cpu_pct:.1f}",
+                    f"[{cpu_color}]{cpu_bar}[/{cpu_color}]",
+                    f"{mem_pct:.1f}",
+                    f"[{mem_color}]{mem_bar}[/{mem_color}]",
+                    proc['name'][:40],
+                    proc['username'][:15]
+                )
+
+        # Layout and print
+        if not compact:
+            # First row: uptime
+            self.console.print(uptime_panel)
+
+            # Second row: CPU and Memory side by side
+            self.console.print(Columns([cpu_panel, mem_panel], equal=True, expand=True))
+
+            # Third row: Disk and Network side by side
+            self.console.print(Columns([disk_panel, net_panel], equal=True, expand=True))
+
+            # Fourth row: Battery and Temperature (if available)
+            if extra_panels:
+                self.console.print(Columns(extra_panels, equal=True, expand=True))
+
+            # Fifth row: Process table
+            if show_processes:
+                self.console.print(table)
+        else:
+            # Compact mode: stack everything
+            self.console.print(uptime_panel)
+            self.console.print(cpu_panel)
+            self.console.print(mem_panel)
+            self.console.print(disk_panel)
+            self.console.print(net_panel)
+            if extra_panels:
+                for panel in extra_panels:
+                    self.console.print(panel)
+            if show_processes:
+                self.console.print(table)
     
     def get_json_report(self, *, include_processes: bool = True, top_n: int = 10, sort_by: str = 'cpu', include_battery: bool = True) -> Dict[str, Any]:
         """Return performance data as JSON"""
@@ -366,7 +588,7 @@ def main():
                             print(text)
                 else:
                     if not args.no_clear:
-                        print("\033[2J\033[H")  # Clear screen
+                        monitor.console.clear()  # Clear screen using Rich
                     monitor.print_performance_report(
                         show_processes=not args.no_processes,
                         top_n=args.top,
