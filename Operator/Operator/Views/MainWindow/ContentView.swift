@@ -17,6 +17,9 @@ struct ContentView: View {
             // Liquid Glass background
             VisualEffectBackground()
 
+            // Subtle aurora-inspired gradient glow
+            AuroraBackground()
+
             VStack(spacing: 0) {
                 // Custom tab bar
                 TabBarView(selectedTab: $selectedTab)
@@ -68,6 +71,7 @@ struct ContentView: View {
 
 struct TabBarView: View {
     @Binding var selectedTab: Int
+    @Namespace private var selectionAnimation
 
     private let tabs: [(icon: String, label: String)] = [
         ("square.grid.2x2", "Overview"),
@@ -81,22 +85,44 @@ struct TabBarView: View {
     ]
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 8) {
             ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
                 TabButton(
                     icon: tab.icon,
                     label: tab.label,
-                    isSelected: selectedTab == index
+                    isSelected: selectedTab == index,
+                    namespace: selectionAnimation
                 ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                         selectedTab = index
                     }
                 }
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            Color.accentColor.opacity(0.12),
+                            Color.purple.opacity(0.1),
+                            Color.clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.12), radius: 12, x: 0, y: 8)
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 6)
     }
 }
 
@@ -104,24 +130,42 @@ struct TabButton: View {
     let icon: String
     let label: String
     let isSelected: Bool
+    var namespace: Namespace.ID
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 18))
-                Text(label)
-                    .font(.system(size: 11))
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.accentColor.opacity(0.18),
+                                    Color.purple.opacity(0.18)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+                        )
+                        .shadow(color: Color.accentColor.opacity(0.18), radius: 10, x: 0, y: 6)
+                        .matchedGeometryEffect(id: "tabSelection", in: namespace)
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                    Text(label)
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .padding(.horizontal, 10)
+                .foregroundColor(isSelected ? .white : .secondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
-            )
-            .foregroundColor(isSelected ? .accentColor : .secondary)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
         .allowsHitTesting(true)
@@ -140,6 +184,54 @@ struct VisualEffectBackground: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
+// MARK: - Aurora Background
+
+struct AuroraBackground: View {
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Color.accentColor.opacity(0.18),
+                        Color.purple.opacity(0.14)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .blur(radius: 80)
+
+                Circle()
+                    .fill(Color.blue.opacity(0.22))
+                    .frame(width: geometry.size.width * 0.7)
+                    .offset(x: -geometry.size.width * 0.25, y: -geometry.size.height * 0.35)
+                    .blur(radius: 120)
+
+                Circle()
+                    .fill(Color.pink.opacity(0.2))
+                    .frame(width: geometry.size.width * 0.5)
+                    .offset(x: geometry.size.width * 0.35, y: -geometry.size.height * 0.05)
+                    .blur(radius: 120)
+
+                RoundedRectangle(cornerRadius: 80)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.cyan.opacity(0.12), Color.indigo.opacity(0.08)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.6)
+                    .offset(y: geometry.size.height * 0.35)
+                    .blur(radius: 90)
+            }
+            .ignoresSafeArea()
+        }
+        .allowsHitTesting(false)
+        .compositingGroup()
+        .opacity(0.9)
+    }
 }
 
 // MARK: - Preview
