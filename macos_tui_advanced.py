@@ -454,16 +454,26 @@ class MacOSMonitorAdvancedTUI(App):
     CSS = """
     /* ============================================
        macOS Liquid Glass Theme
-       Supports both Light Mode and Dark Mode
+       Inspired by Cursor / ChatGPT / MarkEdit
        ============================================ */
 
     Screen {
         background: $background;
+        color: $text;
+    }
+
+    #workspace {
+        padding: 1 2;
+        background: $surface;
+        border: tall $primary 20%;
+        layer: outline;
     }
 
     /* Liquid Glass effect - semi-transparent panels */
-    Static {
-        background: $surface;
+    Static.glass-card {
+        background: $surface 80%;
+        border: round $primary 35%;
+        padding: 1 1;
     }
 
     /* Header styling - macOS window bar style */
@@ -471,6 +481,7 @@ class MacOSMonitorAdvancedTUI(App):
         background: $primary-background;
         color: $text;
         dock: top;
+        text-style: bold;
     }
 
     Header.-tall {
@@ -481,6 +492,7 @@ class MacOSMonitorAdvancedTUI(App):
     Footer {
         background: $primary-background;
         color: $text-muted;
+        text-style: bold;
     }
 
     /* Tabbed content - main navigation */
@@ -492,23 +504,28 @@ class MacOSMonitorAdvancedTUI(App):
     Tabs {
         background: $surface;
         dock: top;
+        border: round $primary 30%;
+        margin: 0 1 1 1;
     }
 
     Tab {
         background: transparent;
         color: $text-muted;
-        padding: 0 2;
+        padding: 0 3;
+        height: 3;
+        border: tall transparent;
     }
 
     Tab:hover {
-        background: $primary 20%;
+        background: $primary 15%;
         color: $text;
     }
 
     Tab.-active {
-        background: $primary 30%;
+        background: $primary 25%;
         color: $primary;
         text-style: bold;
+        border: tall $primary 50%;
     }
 
     TabPane {
@@ -521,6 +538,7 @@ class MacOSMonitorAdvancedTUI(App):
         background: $surface;
         height: auto;
         border: round $primary 50%;
+        padding: 0 1 1 1;
     }
 
     DataTable > .datatable--header {
@@ -536,11 +554,12 @@ class MacOSMonitorAdvancedTUI(App):
 
     /* Settings modal - Liquid Glass popup */
     #settings-dialog {
-        width: 65;
+        width: 68;
         height: auto;
         background: $surface;
         border: thick $primary 50%;
         padding: 1 2;
+        layer: overlay;
     }
 
     #settings-title {
@@ -558,12 +577,12 @@ class MacOSMonitorAdvancedTUI(App):
     }
 
     .settings-label {
-        width: 30;
+        width: 32;
         color: $text;
     }
 
     .settings-input {
-        width: 20;
+        width: 22;
         background: $background;
         border: tall $primary 30%;
     }
@@ -578,6 +597,7 @@ class MacOSMonitorAdvancedTUI(App):
         margin: 0 1;
         min-width: 12;
         border: tall $primary 50%;
+        text-style: bold;
     }
 
     Button:hover {
