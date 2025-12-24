@@ -238,31 +238,135 @@ struct SystemInfoHeader: View {
 
     var body: some View {
         GlassPanel {
-            HStack {
-                Image(systemName: "desktopcomputer")
-                    .font(.title2)
-                    .foregroundColor(.accentColor)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.accentColor.opacity(0.16), Color.purple.opacity(0.12)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 52, height: 52)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+                            )
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(systemMonitor.systemInfo.modelName)
-                        .font(.headline)
-                    Text("macOS \(systemMonitor.systemInfo.macOSVersion)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        Image(systemName: "desktopcomputer")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                            .shadow(color: Color.black.opacity(0.2), radius: 6, x: 0, y: 3)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(systemMonitor.systemInfo.modelName)
+                            .font(.headline)
+                        Text("macOS \(systemMonitor.systemInfo.macOSVersion)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Uptime")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(systemMonitor.systemInfo.formattedUptime)
+                            .font(.subheadline)
+                            .monospacedDigit()
+                    }
                 }
 
-                Spacer()
+                Divider()
+                    .overlay(Color.white.opacity(0.08))
 
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Uptime")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(systemMonitor.systemInfo.formattedUptime)
-                        .font(.subheadline)
-                        .monospacedDigit()
+                HStack(spacing: 10) {
+                    InfoBadge(
+                        icon: "cpu",
+                        title: "CPU",
+                        value: PercentFormatter.format(systemMonitor.cpuMetrics.totalUsage, decimals: 1),
+                        detail: "\(systemMonitor.cpuMetrics.coreCount) cores",
+                        gradient: LinearGradient(
+                            colors: [Color.blue.opacity(0.35), Color.cyan.opacity(0.2)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                    InfoBadge(
+                        icon: "memorychip",
+                        title: "Memory",
+                        value: PercentFormatter.format(systemMonitor.memoryMetrics.usagePercent, decimals: 1),
+                        detail: String(format: "%.1f / %.1f GB",
+                                       systemMonitor.memoryMetrics.usedGB,
+                                       systemMonitor.memoryMetrics.totalGB),
+                        gradient: LinearGradient(
+                            colors: [Color.purple.opacity(0.32), Color.indigo.opacity(0.18)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                    InfoBadge(
+                        icon: "arrow.up.arrow.down.circle",
+                        title: "Network",
+                        value: systemMonitor.networkMetrics.formattedDownloadSpeed,
+                        detail: "Up \(systemMonitor.networkMetrics.formattedUploadSpeed)",
+                        gradient: LinearGradient(
+                            colors: [Color.green.opacity(0.28), Color.teal.opacity(0.2)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                 }
             }
         }
+    }
+}
+
+// MARK: - Badge
+
+struct InfoBadge: View {
+    let icon: String
+    let title: String
+    let value: String
+    let detail: String
+    let gradient: LinearGradient
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.5)
+            }
+            .foregroundColor(.primary.opacity(0.9))
+
+            Text(value)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+
+            Text(detail)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(gradient)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.28), lineWidth: 0.8)
+                )
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
     }
 }
 

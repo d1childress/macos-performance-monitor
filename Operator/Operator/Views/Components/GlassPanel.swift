@@ -25,56 +25,81 @@ struct GlassPanel<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let title = title {
-                HStack(spacing: 6) {
-                    if let icon = icon {
-                        Image(systemName: icon)
-                            .foregroundColor(.accentColor)
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    Text(title)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                }
+                panelHeader
             }
 
             content
         }
-        .padding()
-        .background(
-            ZStack {
-                // Enhanced liquid glass effect
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
-                
-                // Subtle gradient overlay for depth
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
+        .padding(14)
+        .background(glassBackground)
+        .overlay(glassBorder)
+        .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 10)
+        .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+    }
+
+    private var panelHeader: some View {
+        HStack(spacing: 8) {
+            if let icon = icon {
+                Image(systemName: icon)
+                    .foregroundStyle(
                         LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.05),
-                                Color.clear
-                            ],
+                            colors: [Color.accentColor, Color.purple.opacity(0.85)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
+                    .font(.system(size: 14, weight: .semibold))
             }
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(
+            Text(title ?? "")
+                .font(.headline)
+                .foregroundColor(.primary)
+        }
+    }
+
+    private var glassBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.ultraThinMaterial)
+
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
                     LinearGradient(
                         colors: [
-                            Color.primary.opacity(0.15),
-                            Color.primary.opacity(0.05)
+                            Color.white.opacity(0.12),
+                            Color.white.opacity(0.02)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.5
+                    )
                 )
-        )
-        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 2)
+
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.accentColor.opacity(0.06),
+                            Color.purple.opacity(0.05)
+                        ],
+                        startPoint: .topTrailing,
+                        endPoint: .bottomLeading
+                    )
+                )
+        }
+    }
+
+    private var glassBorder: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .stroke(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.25),
+                        Color.white.opacity(0.08)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 1
+            )
     }
 }
 
