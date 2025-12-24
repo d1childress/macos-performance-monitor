@@ -14,6 +14,10 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            // Deep, glassy base
+            Color(.sRGB, red: 0.04, green: 0.05, blue: 0.08)
+                .ignoresSafeArea()
+
             // Liquid Glass background
             VisualEffectBackground()
 
@@ -85,7 +89,7 @@ struct TabBarView: View {
     ]
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
                 TabButton(
                     icon: tab.icon,
@@ -99,16 +103,29 @@ struct TabBarView: View {
                 }
             }
         }
-        .padding(10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(.ultraThinMaterial)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(.sRGB, red: 0.06, green: 0.08, blue: 0.12).opacity(0.55),
+                                    Color(.sRGB, red: 0.03, green: 0.04, blue: 0.08).opacity(0.6)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
                 .overlay(
                     LinearGradient(
                         colors: [
-                            Color.accentColor.opacity(0.12),
-                            Color.purple.opacity(0.1),
-                            Color.clear
+                            Color.white.opacity(0.08),
+                            Color.white.opacity(0.03)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -116,13 +133,13 @@ struct TabBarView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.12), radius: 12, x: 0, y: 8)
+                .shadow(color: .black.opacity(0.22), radius: 16, x: 0, y: 10)
         )
         .padding(.horizontal, 16)
         .padding(.top, 12)
-        .padding(.bottom, 6)
+        .padding(.bottom, 8)
     }
 }
 
@@ -141,8 +158,9 @@ struct TabButton: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.accentColor.opacity(0.18),
-                                    Color.purple.opacity(0.18)
+                                    Color.accentColor.opacity(0.26),
+                                    Color.purple.opacity(0.22),
+                                    Color(.sRGB, red: 0.15, green: 0.2, blue: 0.3).opacity(0.2)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -150,21 +168,21 @@ struct TabButton: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+                                .strokeBorder(Color.white.opacity(0.28), lineWidth: 1)
                         )
-                        .shadow(color: Color.accentColor.opacity(0.18), radius: 10, x: 0, y: 6)
+                        .shadow(color: Color.accentColor.opacity(0.26), radius: 12, x: 0, y: 7)
                         .matchedGeometryEffect(id: "tabSelection", in: namespace)
                 }
 
                 HStack(spacing: 8) {
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                     Text(label)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 11.5, weight: .medium))
                 }
-                .frame(maxWidth: .infinity, minHeight: 40)
-                .padding(.horizontal, 10)
-                .foregroundColor(isSelected ? .white : .secondary)
+                .frame(maxWidth: .infinity, minHeight: 32)
+                .padding(.horizontal, 8)
+                .foregroundColor(isSelected ? .white : Color.white.opacity(0.68))
             }
         }
         .buttonStyle(.borderless)
@@ -194,30 +212,33 @@ struct AuroraBackground: View {
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color.accentColor.opacity(0.18),
-                        Color.purple.opacity(0.14)
+                        Color(.sRGB, red: 0.06, green: 0.08, blue: 0.12),
+                        Color(.sRGB, red: 0.02, green: 0.02, blue: 0.05)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                .blur(radius: 80)
+                .blur(radius: 60)
 
                 Circle()
-                    .fill(Color.blue.opacity(0.22))
-                    .frame(width: geometry.size.width * 0.7)
+                    .fill(Color.cyan.opacity(0.18))
+                    .frame(width: geometry.size.width * 0.6)
                     .offset(x: -geometry.size.width * 0.25, y: -geometry.size.height * 0.35)
-                    .blur(radius: 120)
+                    .blur(radius: 110)
 
                 Circle()
-                    .fill(Color.pink.opacity(0.2))
-                    .frame(width: geometry.size.width * 0.5)
+                    .fill(Color.purple.opacity(0.18))
+                    .frame(width: geometry.size.width * 0.45)
                     .offset(x: geometry.size.width * 0.35, y: -geometry.size.height * 0.05)
-                    .blur(radius: 120)
+                    .blur(radius: 110)
 
                 RoundedRectangle(cornerRadius: 80)
                     .fill(
                         LinearGradient(
-                            colors: [Color.cyan.opacity(0.12), Color.indigo.opacity(0.08)],
+                            colors: [
+                                Color(.sRGB, red: 0.05, green: 0.4, blue: 0.55).opacity(0.18),
+                                Color.indigo.opacity(0.14)
+                            ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -225,6 +246,17 @@ struct AuroraBackground: View {
                     .frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.6)
                     .offset(y: geometry.size.height * 0.35)
                     .blur(radius: 90)
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.12),
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                        .blendMode(.screen)
+                    )
             }
             .ignoresSafeArea()
         }
