@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 macOS Performance Monitor - Advanced TUI Version
-Demonstrates advanced Textual features: tabs, buttons, modals, settings
+A user-friendly, feature-rich TUI with native macOS Liquid Glass styling.
+Supports both light mode and dark mode.
 """
 
 import psutil
@@ -10,48 +11,61 @@ from collections import deque
 from typing import Dict, Any, List
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
+from textual.containers import Container, Horizontal, Vertical, ScrollableContainer, Grid
 from textual.widgets import (
     Header, Footer, Static, DataTable, Label, Button,
-    TabbedContent, TabPane, Switch, Select, Input
+    TabbedContent, TabPane, Switch, Select, Input, ProgressBar, Rule
 )
 from textual.reactive import reactive
 from textual.screen import Screen, ModalScreen
+from textual.theme import Theme
 from rich.panel import Panel
+from rich.text import Text
+from rich.table import Table
+from rich.style import Style
 
 
 class SettingsScreen(ModalScreen):
-    """Modal screen for settings"""
+    """Modal screen for settings with Liquid Glass styling"""
 
     def compose(self) -> ComposeResult:
         with Vertical(id="settings-dialog"):
             yield Label("Settings", id="settings-title")
+            yield Rule(style="dim")
 
-            with Horizontal():
-                yield Label("Update Interval (seconds):")
-                yield Input(value="1.0", id="interval-input")
+            with Horizontal(classes="settings-row"):
+                yield Label("Update Interval (seconds):", classes="settings-label")
+                yield Input(value="1.0", id="interval-input", classes="settings-input")
 
-            with Horizontal():
-                yield Label("Number of Processes:")
-                yield Input(value="10", id="processes-input")
+            with Horizontal(classes="settings-row"):
+                yield Label("Number of Processes:", classes="settings-label")
+                yield Input(value="10", id="processes-input", classes="settings-input")
 
-            with Horizontal():
-                yield Label("Enable Temperature Monitoring:")
+            with Horizontal(classes="settings-row"):
+                yield Label("Temperature Monitoring:", classes="settings-label")
                 yield Switch(value=False, id="temp-switch")
 
-            with Horizontal():
-                yield Button("Save", variant="primary", id="save-btn")
-                yield Button("Cancel", id="cancel-btn")
+            with Horizontal(classes="settings-row"):
+                yield Label("Theme Mode:", classes="settings-label")
+                yield Button("Toggle Light/Dark", id="theme-toggle-btn", variant="default")
+
+            yield Rule(style="dim")
+            with Horizontal(id="settings-buttons"):
+                yield Button("Save", variant="success", id="save-btn")
+                yield Button("Cancel", variant="error", id="cancel-btn")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "save-btn":
-            # Get values and update app settings
             interval = self.query_one("#interval-input", Input).value
             num_procs = self.query_one("#processes-input", Input).value
             enable_temps = self.query_one("#temp-switch", Switch).value
 
             self.app.notify(f"Settings saved: interval={interval}s, procs={num_procs}")
             self.dismiss({"interval": interval, "processes": num_procs, "temps": enable_temps})
+        elif event.button.id == "theme-toggle-btn":
+            self.app.dark = not self.app.dark
+            mode = "Dark" if self.app.dark else "Light"
+            self.app.notify(f"Switched to {mode} mode")
         else:
             self.dismiss(None)
 
@@ -342,34 +356,159 @@ class ProcessTableDetailWidget(Static):
             )
 
 
+class OverviewWidget(Static):
+    """Overview widget showing all key metrics at a glance"""
+
+    def __init__(self, monitor, **kwargs):
+        super().__init__(**kwargs)
+        self.monitor = monitor
+
+    def on_mount(self) -> None:
+        self.update_timer = self.set_interval(1.0, self.refresh)
+
+    def render(self) -> Panel:
+        cpu_info = self.monitor.get_cpu_info()
+        mem_info = self.monitor.get_memory_info()
+        net_info = self.monitor.get_network_info()
+
+        # Create a compact overview
+        lines = []
+
+        # System info header
+        lines.append("[bold cyan]macOS Performance Monitor[/bold cyan]")
+        lines.append(f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]")
+        lines.append("")
+
+        # CPU Section
+        cpu_pct = cpu_info['overall_usage']
+        cpu_bar = self._create_gradient_bar(cpu_pct, 30)
+        cpu_color = self._get_status_color(cpu_pct)
+        lines.append(f"[bold]CPU[/bold]")
+        lines.append(f"  {cpu_bar} [{cpu_color}]{cpu_pct:.1f}%[/{cpu_color}]")
+        lines.append(f"  [dim]{cpu_info['core_count']} cores / {cpu_info['thread_count']} threads[/dim]")
+        lines.append("")
+
+        # Memory Section
+        mem_pct = mem_info['percent']
+        mem_bar = self._create_gradient_bar(mem_pct, 30)
+        mem_color = self._get_status_color(mem_pct)
+        lines.append(f"[bold]Memory[/bold]")
+        lines.append(f"  {mem_bar} [{mem_color}]{mem_pct:.1f}%[/{mem_color}]")
+        lines.append(f"  [dim]{mem_info['used_gb']:.1f} GB / {mem_info['total_gb']:.1f} GB[/dim]")
+        lines.append("")
+
+        # Network Section
+        lines.append(f"[bold]Network[/bold]")
+        lines.append(f"  [green]↑[/green] {net_info.get('send_rate_mib_s', 0):.2f} MiB/s")
+        lines.append(f"  [blue]↓[/blue] {net_info.get('recv_rate_mib_s', 0):.2f} MiB/s")
+        lines.append("")
+
+        # Quick Tips
+        lines.append("[dim]Press [bold]d[/bold] for dark/light mode | [bold]s[/bold] for settings | [bold]q[/bold] to quit[/dim]")
+
+        content = "\n".join(lines)
+
+        return Panel(
+            content,
+            title="[bold]System Overview[/bold]",
+            border_style="bright_cyan",
+            padding=(1, 2),
+            subtitle="[dim]Liquid Glass[/dim]"
+        )
+
+    def _create_gradient_bar(self, percent: float, width: int = 20) -> str:
+        """Create a gradient progress bar with macOS-style coloring"""
+        filled = int(width * percent / 100)
+        empty = width - filled
+
+        if percent >= 90:
+            filled_char = "[red]█[/red]"
+        elif percent >= 70:
+            filled_char = "[yellow]█[/yellow]"
+        elif percent >= 50:
+            filled_char = "[blue]█[/blue]"
+        else:
+            filled_char = "[green]█[/green]"
+
+        return filled_char * filled + "[dim]░[/dim]" * empty
+
+    def _get_status_color(self, percent: float) -> str:
+        if percent >= 90:
+            return "red"
+        elif percent >= 70:
+            return "yellow"
+        elif percent >= 50:
+            return "blue"
+        return "green"
+
+
 class MacOSMonitorAdvancedTUI(App):
-    """Advanced TUI with tabs, buttons, and settings"""
+    """
+    Advanced TUI with native macOS Liquid Glass styling.
+    Features light mode and dark mode support.
+    """
+
+    TITLE = "macOS Performance Monitor"
+    SUB_TITLE = "Liquid Glass Edition"
 
     CSS = """
+    /* ============================================
+       macOS Liquid Glass Theme
+       Supports both Light Mode and Dark Mode
+       ============================================ */
+
     Screen {
-        background: transparent;
+        background: $background;
     }
 
+    /* Liquid Glass effect - semi-transparent panels */
     Static {
-        background: transparent;
+        background: $surface;
     }
 
-    DataTable {
-        background: transparent;
-        height: auto;
-    }
-
+    /* Header styling - macOS window bar style */
     Header {
-        background: transparent;
+        background: $primary-background;
+        color: $text;
+        dock: top;
     }
 
+    Header.-tall {
+        background: $primary-background;
+    }
+
+    /* Footer styling */
     Footer {
-        background: transparent;
+        background: $primary-background;
+        color: $text-muted;
     }
 
+    /* Tabbed content - main navigation */
     TabbedContent {
         height: 100%;
         background: transparent;
+    }
+
+    Tabs {
+        background: $surface;
+        dock: top;
+    }
+
+    Tab {
+        background: transparent;
+        color: $text-muted;
+        padding: 0 2;
+    }
+
+    Tab:hover {
+        background: $primary 20%;
+        color: $text;
+    }
+
+    Tab.-active {
+        background: $primary 30%;
+        color: $primary;
+        text-style: bold;
     }
 
     TabPane {
@@ -377,11 +516,30 @@ class MacOSMonitorAdvancedTUI(App):
         background: transparent;
     }
 
-    #settings-dialog {
-        width: 60;
+    /* Data tables - process list styling */
+    DataTable {
+        background: $surface;
         height: auto;
-        background: $panel;
-        border: thick $primary;
+        border: round $primary 50%;
+    }
+
+    DataTable > .datatable--header {
+        background: $primary 20%;
+        color: $text;
+        text-style: bold;
+    }
+
+    DataTable > .datatable--cursor {
+        background: $primary 40%;
+        color: $text;
+    }
+
+    /* Settings modal - Liquid Glass popup */
+    #settings-dialog {
+        width: 65;
+        height: auto;
+        background: $surface;
+        border: thick $primary 50%;
         padding: 1 2;
     }
 
@@ -390,10 +548,100 @@ class MacOSMonitorAdvancedTUI(App):
         text-style: bold;
         color: $primary;
         margin: 1 0;
+        width: 100%;
     }
 
+    .settings-row {
+        height: 3;
+        margin: 1 0;
+        align: left middle;
+    }
+
+    .settings-label {
+        width: 30;
+        color: $text;
+    }
+
+    .settings-input {
+        width: 20;
+        background: $background;
+        border: tall $primary 30%;
+    }
+
+    #settings-buttons {
+        margin-top: 1;
+        align: center middle;
+    }
+
+    /* Buttons - macOS rounded style */
     Button {
         margin: 0 1;
+        min-width: 12;
+        border: tall $primary 50%;
+    }
+
+    Button:hover {
+        background: $primary 30%;
+    }
+
+    Button.-primary {
+        background: $primary;
+        color: $background;
+    }
+
+    Button.-success {
+        background: $success;
+        color: $background;
+    }
+
+    Button.-error {
+        background: $error;
+        color: $background;
+    }
+
+    /* Switch - iOS style toggle */
+    Switch {
+        background: $surface;
+        border: tall $primary 30%;
+    }
+
+    Switch:focus {
+        border: tall $primary;
+    }
+
+    Switch.-on {
+        background: $success;
+    }
+
+    Switch.-on > .switch--slider {
+        background: $background;
+    }
+
+    /* Input fields */
+    Input {
+        background: $background;
+        border: tall $primary 30%;
+    }
+
+    Input:focus {
+        border: tall $primary;
+    }
+
+    /* Rules / Dividers */
+    Rule {
+        color: $primary 30%;
+        margin: 1 0;
+    }
+
+    /* Process table buttons */
+    ProcessTableDetailWidget Button {
+        min-width: 10;
+        height: 3;
+    }
+
+    /* Panels - Liquid Glass effect */
+    Static Panel {
+        border: round $primary 30%;
     }
     """
 
@@ -401,7 +649,12 @@ class MacOSMonitorAdvancedTUI(App):
         ("q", "quit", "Quit"),
         ("s", "show_settings", "Settings"),
         ("r", "refresh", "Refresh"),
-        ("d", "toggle_dark", "Toggle Dark Mode"),
+        ("d", "toggle_dark", "Light/Dark"),
+        ("1", "tab_overview", "Overview"),
+        ("2", "tab_cpu", "CPU"),
+        ("3", "tab_memory", "Memory"),
+        ("4", "tab_network", "Network"),
+        ("5", "tab_processes", "Processes"),
     ]
 
     def __init__(self):
@@ -413,10 +666,9 @@ class MacOSMonitorAdvancedTUI(App):
         """Create child widgets with tabs"""
         yield Header()
 
-        with TabbedContent():
+        with TabbedContent(id="main-tabs"):
             with TabPane("Overview", id="tab-overview"):
-                with Vertical():
-                    yield Label("Quick system overview coming soon...")
+                yield OverviewWidget(self.monitor)
 
             with TabPane("CPU", id="tab-cpu"):
                 yield CPUDetailWidget(self.monitor)
@@ -440,7 +692,6 @@ class MacOSMonitorAdvancedTUI(App):
         """Handle settings changes"""
         if settings:
             self.notify(f"Settings updated: {settings}")
-            # Apply settings here
 
     def action_refresh(self) -> None:
         """Force refresh all widgets"""
@@ -450,8 +701,30 @@ class MacOSMonitorAdvancedTUI(App):
                 widget.refresh()
 
     def action_toggle_dark(self) -> None:
-        """Toggle dark mode"""
+        """Toggle between light and dark mode"""
         self.dark = not self.dark
+        mode = "Dark" if self.dark else "Light"
+        self.notify(f"{mode} mode enabled")
+
+    def action_tab_overview(self) -> None:
+        """Switch to Overview tab"""
+        self.query_one("#main-tabs", TabbedContent).active = "tab-overview"
+
+    def action_tab_cpu(self) -> None:
+        """Switch to CPU tab"""
+        self.query_one("#main-tabs", TabbedContent).active = "tab-cpu"
+
+    def action_tab_memory(self) -> None:
+        """Switch to Memory tab"""
+        self.query_one("#main-tabs", TabbedContent).active = "tab-memory"
+
+    def action_tab_network(self) -> None:
+        """Switch to Network tab"""
+        self.query_one("#main-tabs", TabbedContent).active = "tab-network"
+
+    def action_tab_processes(self) -> None:
+        """Switch to Processes tab"""
+        self.query_one("#main-tabs", TabbedContent).active = "tab-processes"
 
 
 if __name__ == "__main__":
