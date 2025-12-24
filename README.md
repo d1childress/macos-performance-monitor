@@ -196,24 +196,6 @@ Operator/
 - **Mach APIs** for low-level system metrics
 - **IOKit** for battery and thermal data
 
-## Python TUI Version
-
-This repository also includes a Python-based terminal UI version (`macos_tui_advanced.py`) for command-line monitoring:
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the TUI
-python3 macos_tui_advanced.py
-
-# Continuous monitoring
-python3 macos_tui_advanced.py -c -i 2
-
-# JSON output
-python3 macos_tui_advanced.py -j
-```
-
 ## License
 
 MIT License - Feel free to use and modify.
