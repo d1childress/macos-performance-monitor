@@ -1,4 +1,4 @@
-# Operator
+# operator
 
 A native macOS system performance monitor built with Swift and SwiftUI. Operator provides comprehensive real-time monitoring of CPU, memory, disk, network, battery, and thermal metrics in a beautiful, modern interface.
 
@@ -195,24 +195,6 @@ Operator/
 - **UserNotifications** for native alerts
 - **Mach APIs** for low-level system metrics
 - **IOKit** for battery and thermal data
-
-## Python TUI Version
-
-This repository also includes a Python-based terminal UI version (`macos_tui_advanced.py`) for command-line monitoring:
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the TUI
-python3 macos_tui_advanced.py
-
-# Continuous monitoring
-python3 macos_tui_advanced.py -c -i 2
-
-# JSON output
-python3 macos_tui_advanced.py -j
-```
 
 ## License
 
