@@ -24,7 +24,7 @@ struct MemoryView: View {
                                 valueLabel: String(format: "%.1f GB", systemMonitor.memoryMetrics.usedGB),
                                 status: systemMonitor.memoryMetrics.statusColor
                             )
-                            .frame(width: 150, height: 100)
+                            .frame(width: 150, height: 120)
 
                             VStack(alignment: .leading, spacing: 8) {
                                 MetricRow("Total", value: String(format: "%.2f GB", systemMonitor.memoryMetrics.totalGB), icon: "square.stack.3d.up")

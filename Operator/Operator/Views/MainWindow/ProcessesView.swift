@@ -360,7 +360,8 @@ struct TableHeader: View {
         }
         .buttonStyle(.borderless)
         .allowsHitTesting(true)
-        .frame(width: width, maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+        .frame(width: width, alignment: .leading)
+        .frame(maxWidth: width == nil ? .infinity : nil)
     }
 }
 

@@ -36,8 +36,8 @@ struct SemiCircularGauge: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
+        VStack(spacing: 0) {
+            ZStack(alignment: .bottom) {
                 // Background arc
                 SemiCircle()
                     .stroke(Color.primary.opacity(0.1), lineWidth: 12)
@@ -51,10 +51,10 @@ struct SemiCircularGauge: View {
                     )
                     .animation(.easeInOut(duration: 0.3), value: percentage)
 
-                // Center value
+                // Center value - positioned at bottom center of the arc
                 VStack(spacing: 2) {
                     Text(valueLabel ?? PercentFormatter.formatInt(percentage * 100))
-                        .font(.system(.title, design: .rounded, weight: .bold))
+                        .font(.system(.title2, design: .rounded, weight: .bold))
                         .monospacedDigit()
                         .frame(minWidth: 60)
 
@@ -62,7 +62,7 @@ struct SemiCircularGauge: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                .offset(y: 10)
+                .padding(.bottom, 8)
             }
         }
     }

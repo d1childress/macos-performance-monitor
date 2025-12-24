@@ -23,7 +23,7 @@ struct CPUView: View {
                                 title: "CPU",
                                 status: systemMonitor.cpuMetrics.statusColor
                             )
-                            .frame(width: 150, height: 100)
+                            .frame(width: 150, height: 120)
 
                             VStack(alignment: .leading, spacing: 8) {
                                 MetricRow("Physical Cores", value: "\(systemMonitor.cpuMetrics.coreCount)", icon: "cpu")
